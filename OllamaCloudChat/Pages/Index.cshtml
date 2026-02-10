@@ -1,0 +1,494 @@
+﻿@page
+@model IndexModel
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat - Ollama</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <style>
+        :root {
+            --chat-bg: #f3f4f6;
+            --user-bubble: #2563eb;
+            --ai-bubble: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--chat-bg);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 18px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            gap: 12px;
+        }
+
+        .status-tag {
+            font-size: 11px;
+            background: #dcfce7;
+            color: #166534;
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        #chatBox {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .message-wrapper {
+            display: flex;
+            max-width: 80%;
+        }
+
+        .user {
+            align-self: flex-end;
+        }
+
+        .assistant {
+            align-self: flex-start;
+        }
+
+        .bubble {
+            padding: 14px 18px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-break: break-word;
+        }
+
+        .user .bubble {
+            background: var(--user-bubble);
+            color: white;
+        }
+
+        .assistant .bubble {
+            background: var(--ai-bubble);
+            border: 1px solid #e5e7eb;
+        }
+
+        .bubble pre {
+            margin-top: 8px;
+            border-radius: 10px;
+            overflow: auto;
+        }
+
+        .input-container {
+            background: white;
+            padding: 15px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        #chatForm {
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px 18px;
+            border-radius: 25px;
+            border: 1px solid #cbd5e1;
+        }
+
+        button {
+            background: var(--user-bubble);
+            color: white;
+            border: none;
+            padding: 0 22px;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+
+        .logout-btn {
+            padding: 8px 14px;
+            border-radius: 10px;
+            background: #ef4444;
+            color: white;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .logout-btn:hover {
+             background: #dc2626;
+        }
+
+        .message-wrapper {
+            animation: fadeIn .25s ease;
+        }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .typing {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+            .typing span {
+                width: 6px;
+                height: 6px;
+                background: #94a3b8;
+                border-radius: 50%;
+                animation: blink 1.3s infinite;
+            }
+
+                .typing span:nth-child(2) {
+                    animation-delay: .2s;
+                }
+
+                .typing span:nth-child(3) {
+                    animation-delay: .4s;
+                }
+
+        @@keyframes blink {
+            0%, 80%, 100% {
+                opacity: .2;
+            }
+
+            40% {
+                opacity: 1;
+            }
+        }
+
+        button:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        #chatBox {
+            scroll-behavior: smooth;
+        }
+
+        .top-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-shrink: 0; 
+        }
+
+        .action-btn{
+            font-size:13px;
+            padding:8px 14px;
+            border-radius:10px;
+            border:1px solid #cbd5e1;
+            background:#f8fafc;
+            color: black;
+            cursor:pointer;
+            white-space:nowrap;
+            font-weight:500;
+        }
+
+        .action-btn:hover{
+            background:#e2e8f0;
+        }
+       
+        .code-wrap {
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            font-size: 11px;
+            background: #111827;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            opacity: .85;
+        }
+
+        .copy-btn:hover {
+           opacity: 1;
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div>
+            ☁️ Ollama AI
+            <span class="status-tag">Online</span>
+        </div>
+
+        <div class="top-actions">
+            <button type="button" id="regenBtn" class="action-btn">🔁 Regenerate</button>
+            <button type="button" id="clearBtn" class="action-btn">🗑 Clear</button>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </header>
+
+
+    <main id="chatBox"></main>
+
+    <div class="input-container">
+        <form method="post" id="chatForm">
+            @Html.AntiForgeryToken()
+            <input name="Message" id="messageInput" placeholder="Ketik pesan di sini..." autocomplete="off" required />
+            <button type="submit">Kirim</button>
+        </form>
+    </div>
+
+    <script>
+        marked.setOptions({
+            gfm: true,
+            breaks: true
+        });
+
+        const box = document.getElementById("chatBox");
+        const form = document.getElementById("chatForm");
+        const input = document.getElementById("messageInput");
+        const button = form.querySelector("button");
+        const regenBtn = document.getElementById("regenBtn");
+        const clearBtn = document.getElementById("clearBtn");
+
+        let lastUserMessage = null;
+
+        function renderMarkdown() {
+
+            document.querySelectorAll('.markdown-content').forEach(el => {
+
+                const raw = el.dataset.raw;
+                const html = marked.parse(raw);
+                el.innerHTML = html;
+
+                el.querySelectorAll('pre').forEach(pre => {
+
+                    if(pre.parentElement.classList.contains("code-wrap")) return;
+
+                    const wrapper = document.createElement("div");
+                    wrapper.className = "code-wrap";
+
+                    const btn = document.createElement("button");
+                    btn.className = "copy-btn";
+                    btn.innerText = "Copy";
+
+                    btn.onclick = () => {
+                        navigator.clipboard.writeText(pre.innerText);
+                        btn.innerText = "Copied ✓";
+                        setTimeout(()=>btn.innerText="Copy",1200);
+                    };
+
+                pre.parentNode.insertBefore(wrapper, pre);
+                wrapper.appendChild(pre);
+                wrapper.appendChild(btn);
+                });
+
+
+                el.querySelectorAll('pre code').forEach(block => {
+                    hljs.highlightElement(block);
+                });
+            });
+        }
+
+        function scrollBottom(){
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function createBubble(role,text){
+
+            const wrap = document.createElement("div");
+            wrap.className = "message-wrapper " + role;
+
+            const bubble = document.createElement("div");
+            bubble.className = "bubble markdown-content";
+            bubble.dataset.raw = text;
+
+            wrap.appendChild(bubble);
+            box.appendChild(wrap);
+            saveHistory();
+            renderMarkdown();
+            scrollBottom();
+
+            return wrap;
+        }
+
+        function saveHistory(){
+            sessionStorage.setItem("chat-history", box.innerHTML);
+        }
+
+        function loadHistory(){
+            const saved = sessionStorage.getItem("chat-history");
+            if(saved){
+                box.innerHTML = saved;
+                renderMarkdown();
+                return true;
+            }
+            return false;
+        }
+
+
+        function showTyping(){
+            const wrap = document.createElement("div");
+            wrap.className="message-wrapper assistant";
+            wrap.id="typing";
+
+            wrap.innerHTML=`
+                <div class="bubble">
+                    <div class="typing">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>`;
+
+            box.appendChild(wrap);
+        }
+
+        function hideTyping(){
+            const t=document.getElementById("typing");
+            if(t) t.remove();
+        }
+
+         function greetingIfEmpty(){
+
+            if(sessionStorage.getItem("chat-history")) return;
+            const wrap = document.createElement("div");
+            wrap.className="message-wrapper assistant";
+            wrap.innerHTML = `
+                <div class="bubble markdown-content" data-raw="Halo 👋
+                Saya **Ollama AI**.
+                Tanyakan apa saja dan mari kita mulai."></div>
+            `;
+
+            box.prepend(wrap);
+            renderMarkdown();
+            saveHistory();
+        }
+
+        form.addEventListener("submit", async (e) => {
+
+            e.preventDefault();
+
+            if (button.disabled) return;
+            button.disabled = true;
+
+            const text = input.value.trim();
+            if (!text) {
+                button.disabled = false;
+                return;
+            }
+
+            input.value = "";
+            lastUserMessage = text;
+
+            createBubble("user", text);
+            showTyping();
+
+            try {
+
+                const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+                if (!tokenElement) {
+                    console.error("Antiforgery token not found");
+                    return;
+                }
+                const token = tokenElement.value;
+
+                const formData = new URLSearchParams();
+                formData.append("Message", text);
+
+                const res = await fetch("?handler=Post", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "RequestVerificationToken": token
+                    },
+                    body: formData
+                });
+
+
+                if (!res.ok) throw new Error();
+
+                const data = await res.json();
+
+                hideTyping();
+                createBubble("assistant", data.answer);
+
+            }
+            catch {
+                hideTyping();
+                createBubble("assistant", "⚠️ Server error");
+            }
+            finally {
+                button.disabled = false;
+            }
+        });
+
+
+
+        regenBtn.onclick = () => {
+            if (!lastUserMessage) return;
+
+            input.value = lastUserMessage;
+            form.dispatchEvent(new Event("submit"));
+        };
+
+
+        clearBtn.onclick=()=>{
+
+            if(!confirm("Hapus semua chat?")) return;
+
+            sessionStorage.removeItem("chat-history");
+            box.innerHTML="";
+            greetingIfEmpty();
+        };
+
+
+        window.onload=()=>{
+
+            hideTyping();
+
+            if(!loadHistory()){
+                greetingIfEmpty();
+            }
+
+            scrollBottom();
+            input.focus();
+        };
+
+
+    </script>
+
+
+</body>
+</html>
